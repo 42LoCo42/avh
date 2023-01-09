@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+env \
+	CGO_ENABLED=1 \
+	GOOS=linux \
+	GOARCH=arm64 \
+	CC=/usr/bin/aarch64-linux-gnu-gcc \
+	go build

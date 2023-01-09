@@ -1,5 +1,7 @@
 package main
 
+// #cgo LDFLAGS: -lpthread -lm
+
 import (
 	"database/sql"
 	"log"
