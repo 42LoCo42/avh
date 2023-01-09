@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 )
 
 func newHash(pass string) (string, string, error) {
@@ -65,7 +66,7 @@ func checkAuth(name, pass string) bool {
 	return hash == genHash(pass, salt)
 }
 
-func changePW(w http.ResponseWriter, r *http.Request) {
+func userChangePW(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	oldPW := r.FormValue("oldPW")
 	newPW := r.FormValue("newPW")
@@ -87,4 +88,48 @@ func changePW(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("User %s changed their password", name)
+}
+
+func userAuth(w http.ResponseWriter, r *http.Request) (string, bool) {
+	auth, err := r.Cookie("auth")
+	if err != nil {
+		noAuth(w, "")
+		return "", false
+	}
+
+	user, ok := checkJWT(auth.Value)
+	if !ok {
+		noAuth(w, user)
+		return "", false
+	}
+
+	return user, true
+}
+
+func userLogin(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	pass := r.FormValue("pass")
+
+	if !checkAuth(name, pass) {
+		noAuth(w, name)
+		return
+	}
+
+	token, err := issueJWT(name)
+	if err != nil {
+		onErr(w, err)
+		return
+	}
+
+	log.Printf("User %s logged in", name)
+
+	cookie := http.Cookie{
+		Name:     "auth",
+		Value:    token,
+		Expires:  time.Now().Add(24 * time.Hour),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	}
+	http.SetCookie(w, &cookie)
 }

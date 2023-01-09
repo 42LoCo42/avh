@@ -1,25 +1,28 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/sha512"
 	"database/sql"
-	"encoding/base64"
 	"log"
-	"math/big"
 	"net/http"
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
-	"golang.org/x/crypto/pbkdf2"
 )
 
 const DB = "users.db"
 const INIT_LENGTH = 16
+const ENV_JWT_KEY_NAME = "AVH_JWT_KEY"
 
 var db *sql.DB
+var jwtKey []byte
 
 func main() {
+	jwtKeyString, ok := os.LookupEnv(ENV_JWT_KEY_NAME)
+	if !ok {
+		log.Fatalf("%s not set!", ENV_JWT_KEY_NAME)
+	}
+	jwtKey = []byte(jwtKeyString)
+
 	init := false
 	if _, err := os.Stat(DB); os.IsNotExist(err) {
 		init = true
@@ -59,43 +62,21 @@ func main() {
 	http.HandleFunc("/admin/resetUserPW", adminResetUserPW)
 
 	// user stuff
-	http.HandleFunc("/changePW", changePW)
+	http.HandleFunc("/changePW", userChangePW)
+	http.HandleFunc("/login", userLogin)
 
 	// static files
-	http.Handle("/", http.FileServer(http.Dir("root")))
+	fileServer := http.FileServer(http.Dir("root"))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		user, ok := userAuth(w, r)
+		if !ok {
+			return
+		}
+
+		log.Printf("User %s got %s", user, r.URL.Path)
+		fileServer.ServeHTTP(w, r)
+	})
 
 	log.Print("Up and running")
 	http.ListenAndServe(":37812", nil)
-}
-
-func genHash(pass, salt string) string {
-	return base64.StdEncoding.EncodeToString(
-		pbkdf2.Key(
-			[]byte(pass),
-			[]byte(salt),
-			10000,
-			64,
-			sha512.New,
-		),
-	)
-}
-
-// https://gist.github.com/denisbrodbeck/635a644089868a51eccd6ae22b2eb800
-func GenerateRandomASCIIString(length int) (string, error) {
-	result := ""
-	for {
-		if len(result) >= length {
-			return result, nil
-		}
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(127)))
-		if err != nil {
-			return "", err
-		}
-		n := num.Int64()
-		// Make sure that the number/byte/letter is inside
-		// the range of printable ASCII characters (excluding space and DEL)
-		if n > 32 && n < 127 {
-			result += string(rune(n))
-		}
-	}
 }
