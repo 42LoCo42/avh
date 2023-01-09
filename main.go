@@ -5,12 +5,10 @@ import (
 	"crypto/sha512"
 	"database/sql"
 	"encoding/base64"
-	"fmt"
 	"log"
 	"math/big"
 	"net/http"
 	"os"
-	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/pbkdf2"
@@ -19,13 +17,16 @@ import (
 const DB = "users.db"
 const INIT_LENGTH = 16
 
+var db *sql.DB
+
 func main() {
 	init := false
 	if _, err := os.Stat(DB); os.IsNotExist(err) {
 		init = true
 	}
 
-	db, err := sql.Open("sqlite3", "users.db")
+	var err error
+	db, err = sql.Open("sqlite3", "users.db")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -43,96 +44,24 @@ func main() {
 			log.Fatal(err)
 		}
 
-		if err := newUser(db, "admin", pass); err != nil {
+		if err := newUser("admin", pass); err != nil {
 			log.Fatal(err)
 		}
 
 		log.Print("Created initial admin user with password ", pass)
 	}
 
-	http.HandleFunc("/admin/", func(w http.ResponseWriter, r *http.Request) {
-		log.Print("admin login from ", r.RemoteAddr)
-		name, pass, ok := r.BasicAuth()
+	// admin stuff
+	http.HandleFunc("/admin/listUsers", adminListUsers)
+	http.HandleFunc("/admin/newUser", adminNewUser)
+	http.HandleFunc("/admin/delUser", adminDelUser)
+	http.HandleFunc("/admin/setUserPW", adminSetUserPW)
+	http.HandleFunc("/admin/resetUserPW", adminResetUserPW)
 
-		noAuth := func() {
-			log.Printf("User %s failed admin login!", name)
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("Unauthorized"))
-		}
+	// user stuff
+	http.HandleFunc("/changePW", changePW)
 
-		badReq := func(msg string) {
-			log.Print(msg)
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(msg))
-		}
-
-		onErr := func(err error) {
-			log.Print(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-		}
-
-		if !ok || name != "admin" || !checkAuth(db, name, pass) {
-			noAuth()
-			return
-		}
-
-		target := strings.TrimPrefix(r.URL.Path, "/admin/")
-
-		switch target {
-		case "listUsers":
-			query, err := db.Query("select name from users")
-			if err != nil {
-				onErr(err)
-				return
-			}
-
-			for query.Next() {
-				var name string
-				if err := query.Scan(&name); err != nil {
-					onErr(err)
-					return
-				}
-
-				fmt.Fprintln(w, name)
-			}
-
-		case "newUser":
-			name := r.FormValue("name")
-			if name == "" {
-				badReq("name is blank")
-				return
-			}
-
-			pass, err := GenerateRandomASCIIString(INIT_LENGTH)
-			if err != nil {
-				onErr(err)
-				return
-			}
-
-			if err := newUser(db, name, pass); err != nil {
-				onErr(err)
-			}
-
-			w.Write([]byte(pass))
-
-		case "delUser":
-			name := r.FormValue("name")
-			if name == "" {
-				badReq("name is blank")
-				return
-			}
-
-			if _, err := db.Exec("delete from users where name = ?", name); err != nil {
-				onErr(err)
-				return
-			}
-
-		default:
-			badReq("Unknown action")
-		}
-	})
-
+	// static files
 	http.Handle("/", http.FileServer(http.Dir("root")))
 
 	log.Print("Up and running")
@@ -149,29 +78,6 @@ func genHash(pass, salt string) string {
 			sha512.New,
 		),
 	)
-}
-
-func newUser(db *sql.DB, name, pass string) error {
-	salt, err := GenerateRandomASCIIString(INIT_LENGTH)
-	if err != nil {
-		return nil
-	}
-
-	hash := genHash(pass, salt)
-	_, err = db.Exec("insert into users values (?, ?, ?)", name, salt, hash)
-	return err
-}
-
-func checkAuth(db *sql.DB, name, pass string) bool {
-	query := db.QueryRow("select salt, hash from users where name = ?", name)
-	var salt string
-	var hash string
-	if err := query.Scan(&salt, &hash); err != nil {
-		log.Print(err)
-		return false
-	}
-
-	return hash == genHash(pass, salt)
 }
 
 // https://gist.github.com/denisbrodbeck/635a644089868a51eccd6ae22b2eb800
