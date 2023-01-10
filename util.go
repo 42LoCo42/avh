@@ -23,12 +23,12 @@ func noAuth(w http.ResponseWriter, r *http.Request, name string) {
 
 func badReq(w http.ResponseWriter, r *http.Request, msg string) {
 	log.Print(msg)
-	http.Redirect(w, r, "/err.html?msg=" + msg, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/err.html?msg="+msg, http.StatusTemporaryRedirect)
 }
 
 func onErr(w http.ResponseWriter, r *http.Request, err error) {
 	log.Print(err)
-	http.Redirect(w, r, "/err.html?msg" +err.Error(), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/err.html?msg"+err.Error(), http.StatusTemporaryRedirect)
 }
 
 func genHash(pass, salt string) string {

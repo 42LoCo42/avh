@@ -21,7 +21,7 @@ func newUser(name, pass string) error {
 		return err
 	}
 
-	_, err = db.Exec("insert into users values (?, ?, ?)", name, salt, hash)
+	_, err = db.Exec("insert into users values (?, ?, ?, false)", name, salt, hash)
 	return err
 }
 
@@ -64,6 +64,17 @@ func checkAuth(name, pass string) bool {
 	}
 
 	return hash == genHash(pass, salt)
+}
+
+func canUpload(name string) bool {
+	query := db.QueryRow("select canUpload from users where name = ?", name)
+	var canUpload bool
+	if err := query.Scan(&canUpload); err != nil {
+		log.Print(err)
+		return false
+	}
+
+	return canUpload
 }
 
 func userChangePW(w http.ResponseWriter, r *http.Request) {

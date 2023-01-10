@@ -6,9 +6,11 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -45,8 +47,13 @@ func main() {
 	defer db.Close()
 
 	if init {
-		if _, err = db.Exec(
-			"create table users (name text primary key, salt text not null, hash text not null)",
+		if _, err = db.Exec(`
+			create table users (
+				name text primary key,
+				salt text not null,
+				hash text not null,
+				canUpload bool not null
+			)`,
 		); err != nil {
 			log.Fatal(err)
 		}
@@ -74,7 +81,47 @@ func main() {
 	http.HandleFunc("/changePW", userChangePW)
 	http.HandleFunc("/login", userLogin)
 
-	// video list
+	// specials
+	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		user, ok := userAuth(w, r)
+		if !ok {
+			return
+		}
+
+		if user != "admin" && !canUpload(user) {
+			log.Printf("User %s may not upload!", user)
+			noAuth(w, r, user)
+			return
+		}
+
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			onErr(w, r, err)
+			return
+		}
+
+		log.Printf("User %s uploads %s with size %d", user, header.Filename, header.Size)
+
+		base := "./root/secure/" + path.Base(header.Filename)
+		if base != header.Filename {
+			log.Print("Normalized path is ", base)
+		}
+
+		os.Remove(base)
+		out, err := os.Create(base)
+		if err != nil {
+			onErr(w, r, err)
+			return
+		}
+
+		if _, err := io.Copy(out, file); err != nil {
+			onErr(w, r, err)
+			return
+		}
+
+		http.ServeFile(w, r, "root/ok.html")
+
+	})
 	http.HandleFunc("/secure", func(w http.ResponseWriter, r *http.Request) {
 		user, ok := userAuth(w, r)
 		if !ok {
@@ -92,7 +139,7 @@ func main() {
 
 		for _, video := range videos {
 			name := video.Name()
-			if name == "template.html" {
+			if strings.HasSuffix(name, ".html") {
 				continue
 			}
 
@@ -107,7 +154,7 @@ func main() {
 </div>
 				`,
 				name,
-				"/secure/" + name,
+				"/secure/"+name,
 			)
 		}
 
@@ -124,9 +171,11 @@ func main() {
 				return
 			}
 			log.Printf("User %s got %s", user, r.URL.Path)
-			w.Header().Set("Content-Disposition", "attachment")
-		}
 
+			if !strings.HasSuffix(r.URL.Path, ".html") {
+				w.Header().Set("Content-Disposition", "attachment")
+			}
+		}
 
 		fileServer.ServeHTTP(w, r)
 	})
