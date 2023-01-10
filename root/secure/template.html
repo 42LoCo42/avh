@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="x-ua-compatible" content="ie=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="/style.css">
+
+		<title>AvH-Videos</title>
+	</head>
+	<body style="display: none;">
+		<h1>AvH-Videos</h1>
+		<a href="javascript:logout()">Logout</a>
+		<hr>
+		<div class="flexbox">
+PLACE_VIDEOS_HERE
+		</div>
+		<hr>
+		<a href="javascript:logout()">Logout</a>
+
+		<script>
+			function logout() {
+				document.cookie = "auth=;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+				document.location = "/";
+			}
+		</script>
+	</body>
+</html>

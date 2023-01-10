@@ -3,10 +3,13 @@ package main
 // #cgo LDFLAGS: -lpthread -lm
 
 import (
+	"bytes"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -30,7 +33,11 @@ func main() {
 		init = true
 	}
 
-	var err error
+	videosTemplate, err := os.ReadFile("root/secure/template.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	db, err = sql.Open("sqlite3", "users.db")
 	if err != nil {
 		log.Fatal(err)
@@ -67,15 +74,60 @@ func main() {
 	http.HandleFunc("/changePW", userChangePW)
 	http.HandleFunc("/login", userLogin)
 
-	// static files
-	fileServer := http.FileServer(http.Dir("root"))
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// video list
+	http.HandleFunc("/secure", func(w http.ResponseWriter, r *http.Request) {
 		user, ok := userAuth(w, r)
 		if !ok {
 			return
 		}
-
 		log.Printf("User %s got %s", user, r.URL.Path)
+
+		var str strings.Builder
+
+		videos, err := os.ReadDir("root/secure")
+		if err != nil {
+			onErr(w, r, err)
+			return
+		}
+
+		for _, video := range videos {
+			name := video.Name()
+			if name == "template.html" {
+				continue
+			}
+
+			fmt.Fprintf(
+				&str,
+				`
+<div>
+	%s&emsp;<a href="%[2]s">Download</a><br>
+	<video controls>
+		<source src="%[2]s">
+	</video>
+</div>
+				`,
+				name,
+				"/secure/" + name,
+			)
+		}
+
+		final := []byte(str.String())
+		w.Write(bytes.Replace(videosTemplate, []byte("PLACE_VIDEOS_HERE"), final, 1))
+	})
+
+	// static files
+	fileServer := http.FileServer(http.Dir("root"))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/secure/") {
+			user, ok := userAuth(w, r)
+			if !ok {
+				return
+			}
+			log.Printf("User %s got %s", user, r.URL.Path)
+			w.Header().Set("Content-Disposition", "attachment")
+		}
+
+
 		fileServer.ServeHTTP(w, r)
 	})
 

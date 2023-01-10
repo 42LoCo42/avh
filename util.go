@@ -11,22 +11,24 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-func noAuth(w http.ResponseWriter, name string) {
-	log.Printf("User %s failed login!", name)
-	w.WriteHeader(http.StatusUnauthorized)
-	w.Write([]byte("Unauthorized"))
+func noAuth(w http.ResponseWriter, r *http.Request, name string) {
+	if name == "" {
+		log.Print("Login with no cookie!")
+	} else {
+		log.Printf("User %s failed login!", name)
+	}
+
+	http.Redirect(w, r, "/err.html?msg=Authentifizierung fehlgeschlagen", http.StatusTemporaryRedirect)
 }
 
-func badReq(w http.ResponseWriter, msg string) {
+func badReq(w http.ResponseWriter, r *http.Request, msg string) {
 	log.Print(msg)
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte(msg))
+	http.Redirect(w, r, "/err.html?msg=" + msg, http.StatusTemporaryRedirect)
 }
 
-func onErr(w http.ResponseWriter, err error) {
+func onErr(w http.ResponseWriter, r *http.Request, err error) {
 	log.Print(err)
-	w.WriteHeader(http.StatusInternalServerError)
-	w.Write([]byte(err.Error()))
+	http.Redirect(w, r, "/err.html?msg" +err.Error(), http.StatusTemporaryRedirect)
 }
 
 func genHash(pass, salt string) string {

@@ -11,7 +11,7 @@ func adminLoginCheck(w http.ResponseWriter, r *http.Request) bool {
 	name, pass, ok := r.BasicAuth()
 
 	if !ok || name != "admin" || !checkAuth(name, pass) {
-		noAuth(w, name)
+		noAuth(w, r, name)
 		return false
 	}
 
@@ -25,14 +25,14 @@ func adminListUsers(w http.ResponseWriter, r *http.Request) {
 
 	query, err := db.Query("select name from users")
 	if err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 		return
 	}
 
 	for query.Next() {
 		var name string
 		if err := query.Scan(&name); err != nil {
-			onErr(w, err)
+			onErr(w, r, err)
 			return
 		}
 
@@ -47,18 +47,18 @@ func adminNewUser(w http.ResponseWriter, r *http.Request) {
 
 	name := r.FormValue("name")
 	if name == "" {
-		badReq(w, "name is blank")
+		badReq(w, r, "name is blank")
 		return
 	}
 
 	pass, err := GenerateRandomASCIIString(INIT_LENGTH)
 	if err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 		return
 	}
 
 	if err := newUser(name, pass); err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 	}
 
 	w.Write([]byte(pass))
@@ -71,12 +71,12 @@ func adminDelUser(w http.ResponseWriter, r *http.Request) {
 
 	name := r.FormValue("name")
 	if name == "" {
-		badReq(w, "name is blank")
+		badReq(w, r, "name is blank")
 		return
 	}
 
 	if _, err := db.Exec("delete from users where name = ?", name); err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 		return
 	}
 }
@@ -90,7 +90,7 @@ func adminSetUserPW(w http.ResponseWriter, r *http.Request) {
 	pass := r.FormValue("pass")
 
 	if err := setPW(name, pass); err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 		return
 	}
 }
@@ -102,13 +102,13 @@ func adminResetUserPW(w http.ResponseWriter, r *http.Request) {
 
 	name := r.FormValue("name")
 	if name == "" {
-		badReq(w, "name is blank")
+		badReq(w, r, "name is blank")
 		return
 	}
 
 	pass, err := resetPW(name)
 	if err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 		return
 	}
 

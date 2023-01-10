@@ -73,33 +73,34 @@ func userChangePW(w http.ResponseWriter, r *http.Request) {
 	repPW := r.FormValue("repPW")
 
 	if newPW != repPW {
-		badReq(w, "Passwords don't match!")
+		badReq(w, r, "Passwörter stimmen nicht überein!")
 		return
 	}
 
 	if !checkAuth(name, oldPW) {
-		noAuth(w, name)
+		noAuth(w, r, name)
 		return
 	}
 
 	if err := setPW(name, newPW); err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 		return
 	}
 
 	log.Printf("User %s changed their password", name)
+	http.Redirect(w, r, "/ok.html?next=/", http.StatusTemporaryRedirect)
 }
 
 func userAuth(w http.ResponseWriter, r *http.Request) (string, bool) {
 	auth, err := r.Cookie("auth")
 	if err != nil {
-		noAuth(w, "")
+		noAuth(w, r, "")
 		return "", false
 	}
 
 	user, ok := checkJWT(auth.Value)
 	if !ok {
-		noAuth(w, user)
+		noAuth(w, r, user)
 		return "", false
 	}
 
@@ -111,13 +112,13 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	pass := r.FormValue("pass")
 
 	if !checkAuth(name, pass) {
-		noAuth(w, name)
+		noAuth(w, r, name)
 		return
 	}
 
 	token, err := issueJWT(name)
 	if err != nil {
-		onErr(w, err)
+		onErr(w, r, err)
 		return
 	}
 
@@ -128,8 +129,8 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Expires:  time.Now().Add(24 * time.Hour),
 		Secure:   true,
-		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, &cookie)
+	http.Redirect(w, r, "/secure", http.StatusTemporaryRedirect)
 }

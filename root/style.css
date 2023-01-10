@@ -1,0 +1,50 @@
+:root {
+	--color-0:  #282828; /* black */
+	--color-1:  #CC241D; /* red */
+	--color-2:  #98971A; /* green */
+	--color-3:  #D79921; /* yellow */
+	--color-4:  #458588; /* blue */
+	--color-5:  #B16286; /* purple */
+	--color-6:  #689D6A; /* mint */
+	--color-7:  #A89984; /* gray */
+	--color-8:  #928374; /* light gray */
+	--color-9:  #FB4934; /* light red */
+	--color-10: #B8BB26; /* light green */
+	--color-11: #FABD2F; /* light yellow */
+	--color-12: #83A598; /* light blue */
+	--color-13: #D3869B; /* light purple */
+	--color-14: #8EC07C; /* light mint */
+	--color-15: #EBDBB2; /* white */
+}
+
+body {
+	background-color: var(--color-0);
+	color: var(--color-15);
+	display: block !important;
+}
+
+a {
+	color: var(--color-4);
+	text-decoration: none;
+}
+
+a:hover {
+	color: var(--color-12);
+	text-decoration: var(--color-12) dotted underline;
+}
+
+a:active {
+	color: var(--color-2);
+	text-decoration: var(--color-2) underline;
+}
+
+.flexbox {
+	display: flex;
+	flex-flow: row wrap;
+}
+
+.flexbox video {
+	width: 250px;
+	object-fit: cover;
+	padding: 5px;
+}
