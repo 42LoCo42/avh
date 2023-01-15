@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -94,32 +96,54 @@ func main() {
 			return
 		}
 
-		file, header, err := r.FormFile("file")
+		_, params, err := mime.ParseMediaType(r.Header.Get("content-type"))
 		if err != nil {
 			onErr(w, r, err)
 			return
 		}
 
-		log.Printf("User %s uploads %s with size %d", user, header.Filename, header.Size)
-
-		base := "./root/secure/" + path.Base(header.Filename)
-		if base != header.Filename {
-			log.Print("Normalized path is ", base)
-		}
-
-		os.Remove(base)
-		out, err := os.Create(base)
-		if err != nil {
-			onErr(w, r, err)
+		boundary, ok := params["boundary"]
+		if !ok {
+			badReq(w, r, "No boundary in multipart request!")
 			return
 		}
 
-		if _, err := io.Copy(out, file); err != nil {
-			onErr(w, r, err)
+		reader := multipart.NewReader(r.Body, boundary)
+		for {
+			part, err := reader.NextPart()
+			if err != nil {
+				if err == io.EOF {
+					break
+				} else {
+					onErr(w, r, err)
+					return
+				}
+			}
+
+			if part.FormName() != "file" {
+				continue
+			}
+
+			base := "./root/secure/" + path.Base(part.FileName())
+			log.Printf("User %s uploads %s", user, base)
+
+			file, err := os.Create(base)
+			if err != nil {
+				onErr(w, r, err)
+				return
+			}
+			defer file.Close()
+
+			if _, err := io.Copy(file, part); err != nil {
+				onErr(w, r, err)
+				return
+			}
+
+			http.ServeFile(w, r, "root/ok.html")
 			return
 		}
 
-		http.ServeFile(w, r, "root/ok.html")
+		badReq(w, r, "Could not process upload")
 
 	})
 	http.HandleFunc("/secure", func(w http.ResponseWriter, r *http.Request) {
