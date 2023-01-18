@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 env \
-	CGO_ENABLED=1 \
+	CGO_ENABLED=0 \
 	GOOS=linux \
 	GOARCH=arm64 \
 	CC=/usr/bin/aarch64-linux-gnu-gcc \

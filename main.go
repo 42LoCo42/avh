@@ -15,7 +15,7 @@ import (
 	"path"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 const DB = "users.db"
@@ -42,7 +42,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	db, err = sql.Open("sqlite3", "users.db")
+	db, err = sql.Open("sqlite", "users.db")
 	if err != nil {
 		log.Fatal(err)
 	}
