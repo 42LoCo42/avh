@@ -163,22 +163,26 @@ func main() {
 
 		for _, video := range videos {
 			name := video.Name()
-			if strings.HasSuffix(name, ".html") {
+			if name == "thumbnails" || strings.HasSuffix(name, ".html") {
 				continue
 			}
+
+			base := "/secure/" + name
+			poster := "/secure/thumbnails/" + strings.TrimSuffix(name, path.Ext(name)) + ".png"
 
 			fmt.Fprintf(
 				&str,
 				`
 <div>
 	%s&emsp;<a href="%[2]s">Download</a><br>
-	<video controls>
+	<video controls poster="%[3]s" preload="metadata">
 		<source src="%[2]s">
 	</video>
 </div>
 				`,
 				name,
-				"/secure/"+name,
+				base,
+				poster,
 			)
 		}
 
