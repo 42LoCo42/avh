@@ -43,8 +43,19 @@ a:active {
 	flex-flow: row wrap;
 }
 
+.flexbox div {
+	display: flex;
+	flex-flow: column;
+	align-items: center;
+	margin-right: 10px;
+}
+
 .flexbox video {
 	width: 250px;
 	object-fit: cover;
 	padding: 5px;
+}
+
+.flexbox img {
+	padding-left: 10px;
 }

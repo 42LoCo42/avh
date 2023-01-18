@@ -174,7 +174,8 @@ func main() {
 				&str,
 				`
 <div>
-	%s&emsp;<a href="%[2]s">Download</a><br>
+	%s<br>
+	<a href="%[2]s">Download</a><br>
 	<video controls poster="%[3]s" preload="metadata">
 		<source src="%[2]s">
 	</video>
