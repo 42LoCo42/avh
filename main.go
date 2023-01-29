@@ -72,13 +72,6 @@ func main() {
 		log.Print("Created initial admin user with password ", pass)
 	}
 
-	// admin stuff
-	http.HandleFunc("/admin/listUsers", adminListUsers)
-	http.HandleFunc("/admin/newUser", adminNewUser)
-	http.HandleFunc("/admin/delUser", adminDelUser)
-	http.HandleFunc("/admin/setUserPW", adminSetUserPW)
-	http.HandleFunc("/admin/resetUserPW", adminResetUserPW)
-
 	// user stuff
 	http.HandleFunc("/changePW", userChangePW)
 	http.HandleFunc("/login", userLogin)
