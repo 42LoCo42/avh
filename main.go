@@ -168,7 +168,6 @@ func main() {
 			}
 
 			base := "/secure/" + name
-			poster := "/secure/thumbnails/" + strings.TrimSuffix(name, path.Ext(name)) + ".png"
 
 			fmt.Fprintf(
 				&str,
@@ -176,14 +175,13 @@ func main() {
 <div>
 	%s<br>
 	<a href="%[2]s">Download</a><br>
-	<video controls poster="%[3]s" preload="metadata">
+	<video controls preload="metadata">
 		<source src="%[2]s">
 	</video>
 </div>
 				`,
 				name,
 				base,
-				poster,
 			)
 		}
 
