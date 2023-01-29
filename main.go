@@ -210,5 +210,18 @@ func main() {
 	})
 
 	log.Print("Up and running")
-	http.ListenAndServe(":37812", nil)
+
+	go func() {
+		var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://" + r.Host + r.URL.String(), http.StatusTemporaryRedirect)
+		}
+
+		upgrader := &http.Server{
+			Addr: ":80",
+			Handler: handler,
+		}
+		log.Fatal(upgrader.ListenAndServe())
+	}()
+
+	log.Fatal(http.ListenAndServeTLS(":443", "cert", "key", nil))
 }
