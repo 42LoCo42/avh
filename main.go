@@ -3,18 +3,17 @@ package main
 // #cgo LDFLAGS: -lpthread -lm
 
 import (
-	"bytes"
 	"database/sql"
 	"fmt"
 	"io"
 	"log"
 	"mime"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"path"
 	"strings"
 
+	"github.com/aerogo/aero"
 	_ "modernc.org/sqlite"
 )
 
@@ -72,44 +71,46 @@ func main() {
 		log.Print("Created initial admin user with password ", pass)
 	}
 
+	if err := os.Chdir("root"); err != nil {
+		log.Fatal(err)
+	}
+
+	app := aero.New()
+
 	// user stuff
-	http.HandleFunc("/changePW", userChangePW)
-	http.HandleFunc("/login", userLogin)
+	app.Get("/changePW", userChangePW)
+	app.Get("/login", userLogin)
 
 	// specials
-	http.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-		user, ok := userAuth(w, r)
-		if !ok {
-			return
+	app.Get("/upload", func(ctx aero.Context) error {
+		user, err := userAuth(ctx)
+		if err != nil {
+			return err
 		}
 
 		if user != "admin" && !canUpload(user) {
 			log.Printf("User %s may not upload!", user)
-			noAuth(w, r, user)
-			return
+			return noAuth(ctx, user)
 		}
 
-		_, params, err := mime.ParseMediaType(r.Header.Get("content-type"))
+		_, params, err := mime.ParseMediaType(ctx.Request().Header("content-type"))
 		if err != nil {
-			onErr(w, r, err)
-			return
+			return onErr(ctx, err)
 		}
 
 		boundary, ok := params["boundary"]
 		if !ok {
-			badReq(w, r, "No boundary in multipart request!")
-			return
+			return badReq(ctx, "No boundary in multipart request!")
 		}
 
-		reader := multipart.NewReader(r.Body, boundary)
+		reader := multipart.NewReader(ctx.Request().Body().Reader(), boundary)
 		for {
 			part, err := reader.NextPart()
 			if err != nil {
 				if err == io.EOF {
 					break
 				} else {
-					onErr(w, r, err)
-					return
+					return onErr(ctx, err)
 				}
 			}
 
@@ -122,36 +123,32 @@ func main() {
 
 			file, err := os.Create(base)
 			if err != nil {
-				onErr(w, r, err)
-				return
+				return onErr(ctx, err)
 			}
 			defer file.Close()
 
 			if _, err := io.Copy(file, part); err != nil {
-				onErr(w, r, err)
-				return
+				return onErr(ctx, err)
 			}
 
-			http.ServeFile(w, r, "root/ok.html")
-			return
+			return ctx.File("root/ok.html")
 		}
 
-		badReq(w, r, "Could not process upload")
-
+		return badReq(ctx, "Could not process upload")
 	})
-	http.HandleFunc("/secure", func(w http.ResponseWriter, r *http.Request) {
-		user, ok := userAuth(w, r)
-		if !ok {
-			return
+
+	app.Get("/secure", func(ctx aero.Context) error {
+		user, err := userAuth(ctx)
+		if err != nil {
+			return err
 		}
-		log.Printf("User %s got %s", user, r.URL.Path)
+		log.Printf("User %s got %s", user, ctx.Request().Internal().URL.Path)
 
 		var str strings.Builder
 
 		videos, err := os.ReadDir("root/secure")
 		if err != nil {
-			onErr(w, r, err)
-			return
+			return onErr(ctx, err)
 		}
 
 		for _, video := range videos {
@@ -178,41 +175,44 @@ func main() {
 			)
 		}
 
-		final := []byte(str.String())
-		w.Write(bytes.Replace(videosTemplate, []byte("PLACE_VIDEOS_HERE"), final, 1))
+		final := str.String()
+		return ctx.HTML(strings.Replace(string(videosTemplate), "PLACE_VIDEOS_HERE", final, 1))
 	})
 
 	// static files
-	fileServer := http.FileServer(http.Dir("root"))
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/secure/") {
-			user, ok := userAuth(w, r)
-			if !ok {
-				return
-			}
-			log.Printf("User %s got %s", user, r.URL.Path)
+	app.Get("/*file", func(ctx aero.Context) error {
+		path := ctx.Request().Internal().URL.Path
 
-			if !strings.HasSuffix(r.URL.Path, ".html") {
-				w.Header().Set("Content-Disposition", "attachment")
+		if strings.HasPrefix(path, "/secure/") {
+			user, err := userAuth(ctx)
+			if err != nil {
+				return err
+			}
+			log.Printf("User %s got %s", user, path)
+
+			if !strings.HasSuffix(path, ".html") {
+				ctx.Response().SetHeader("content-disposition", "attachment")
 			}
 		}
 
-		fileServer.ServeHTTP(w, r)
+		return ctx.File(ctx.Get("file"))
 	})
 
 	log.Print("Up and running")
 
-	go func() {
-		var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "https://" + r.Host + r.URL.String(), http.StatusTemporaryRedirect)
-		}
+	// go func() {
+	// 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+	// 		http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusTemporaryRedirect)
+	// 	}
 
-		upgrader := &http.Server{
-			Addr: ":80",
-			Handler: handler,
-		}
-		log.Fatal(upgrader.ListenAndServe())
-	}()
+	// 	upgrader := &http.Server{
+	// 		Addr:    ":80",
+	// 		Handler: handler,
+	// 	}
+	// 	log.Fatal(upgrader.ListenAndServe())
+	// }()
 
-	log.Fatal(http.ListenAndServeTLS(":443", "cert", "key", nil))
+	app.Config.Ports.HTTP = 37812
+	app.Run()
+	// log.Fatal(http.ListenAndServeTLS(":443", "cert", "key", nil))
 }

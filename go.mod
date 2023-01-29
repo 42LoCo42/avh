@@ -3,18 +3,31 @@ module avh
 go 1.19
 
 require (
+	github.com/aerogo/aero v1.3.59
 	github.com/golang-jwt/jwt/v4 v4.4.3
 	golang.org/x/crypto v0.5.0
 	modernc.org/sqlite v1.20.2
 )
 
 require (
+	github.com/aerogo/csp v0.1.10 // indirect
+	github.com/aerogo/http v1.1.3 // indirect
+	github.com/aerogo/session v0.1.9 // indirect
+	github.com/aerogo/session-store-memory v0.1.9 // indirect
+	github.com/akyoto/color v1.8.12 // indirect
+	github.com/akyoto/colorable v0.1.7 // indirect
+	github.com/akyoto/hash v0.5.0 // indirect
+	github.com/akyoto/stringutils v0.3.1 // indirect
+	github.com/akyoto/tty v0.1.4 // indirect
+	github.com/akyoto/uuid v1.1.3 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
+	github.com/zeebo/xxh3 v1.0.1 // indirect
 	golang.org/x/mod v0.3.0 // indirect
 	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/tools v0.0.0-20201124115921-2c860bdd6e78 // indirect

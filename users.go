@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/aerogo/aero"
 )
 
 func newHash(pass string) (string, string, error) {
@@ -77,60 +79,55 @@ func canUpload(name string) bool {
 	return canUpload
 }
 
-func userChangePW(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	oldPW := r.FormValue("oldPW")
-	newPW := r.FormValue("newPW")
-	repPW := r.FormValue("repPW")
+func userChangePW(ctx aero.Context) error {
+	form := ctx.Request().Internal().Form
+	name := form.Get("name")
+	oldPW := form.Get("oldPW")
+	newPW := form.Get("newPW")
+	repPW := form.Get("repPW")
 
 	if newPW != repPW {
-		badReq(w, r, "Passwörter stimmen nicht überein!")
-		return
+		return badReq(ctx, "Passwörter stimmen nicht überein!")
 	}
 
 	if !checkAuth(name, oldPW) {
-		noAuth(w, r, name)
-		return
+		return noAuth(ctx, name)
 	}
 
 	if err := setPW(name, newPW); err != nil {
-		onErr(w, r, err)
-		return
+		return onErr(ctx, err)
 	}
 
 	log.Printf("User %s changed their password", name)
-	http.Redirect(w, r, "/ok.html?next=/", http.StatusTemporaryRedirect)
+	return ctx.Redirect(http.StatusTemporaryRedirect, "ok.html?next=/")
 }
 
-func userAuth(w http.ResponseWriter, r *http.Request) (string, bool) {
-	auth, err := r.Cookie("auth")
+func userAuth(ctx aero.Context) (string, error) {
+	auth, err := ctx.Request().Internal().Cookie("auth")
 	if err != nil {
-		noAuth(w, r, "")
-		return "", false
+		return "", noAuth(ctx, "")
 	}
 
 	user, ok := checkJWT(auth.Value)
 	if !ok {
-		noAuth(w, r, user)
-		return "", false
+		return "", noAuth(ctx, user)
 	}
 
-	return user, true
+	return user, nil
 }
 
-func userLogin(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
-	pass := r.FormValue("pass")
+func userLogin(ctx aero.Context) error {
+	form := ctx.Request().Internal().Form
+	name := form.Get("name")
+	pass := form.Get("pass")
 
 	if !checkAuth(name, pass) {
-		noAuth(w, r, name)
-		return
+		return noAuth(ctx, name)
 	}
 
 	token, err := issueJWT(name)
 	if err != nil {
-		onErr(w, r, err)
-		return
+		return onErr(ctx, err)
 	}
 
 	log.Printf("User %s logged in", name)
@@ -142,6 +139,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	}
-	http.SetCookie(w, &cookie)
-	http.Redirect(w, r, "/secure", http.StatusTemporaryRedirect)
+
+	http.SetCookie(ctx.Response().Internal(), &cookie)
+	return ctx.Redirect(http.StatusTemporaryRedirect, "/secure")
 }

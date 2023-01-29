@@ -8,27 +8,28 @@ import (
 	"math/big"
 	"net/http"
 
+	"github.com/aerogo/aero"
 	"golang.org/x/crypto/pbkdf2"
 )
 
-func noAuth(w http.ResponseWriter, r *http.Request, name string) {
+func noAuth(ctx aero.Context, name string) error {
 	if name == "" {
 		log.Print("Login with no cookie!")
 	} else {
 		log.Printf("User %s failed login!", name)
 	}
 
-	http.Redirect(w, r, "/err.html?msg=Authentifizierung fehlgeschlagen", http.StatusTemporaryRedirect)
+	return ctx.Redirect(http.StatusTemporaryRedirect, "/err.html?msg=Authentifizierung fehlgeschlagen")
 }
 
-func badReq(w http.ResponseWriter, r *http.Request, msg string) {
+func badReq(ctx aero.Context, msg string) error {
 	log.Print(msg)
-	http.Redirect(w, r, "/err.html?msg="+msg, http.StatusTemporaryRedirect)
+	return ctx.Redirect(http.StatusTemporaryRedirect, "/err.html?msg="+msg)
 }
 
-func onErr(w http.ResponseWriter, r *http.Request, err error) {
+func onErr(ctx aero.Context, err error) error {
 	log.Print(err)
-	http.Redirect(w, r, "/err.html?msg"+err.Error(), http.StatusTemporaryRedirect)
+	return ctx.Redirect(http.StatusTemporaryRedirect, "/err.html?msg"+err.Error())
 }
 
 func genHash(pass, salt string) string {
