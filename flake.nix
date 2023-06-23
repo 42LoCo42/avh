@@ -8,7 +8,7 @@
       let
         pkgs = import nixpkgs { inherit system; };
       in
-      {
+      rec {
         defaultPackage = pkgs.buildGoModule {
           pname = "avh";
           version = "1";
@@ -23,6 +23,15 @@
             go
             gopls
           ];
+        };
+
+        dockerImage = pkgs.dockerTools.buildImage {
+          name = "avh";
+          config = {
+            Cmd = [
+              "${defaultPackage}/bin/avh"
+            ];
+          };
         };
       });
 }
