@@ -143,5 +143,5 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	}
 	http.SetCookie(w, &cookie)
-	http.Redirect(w, r, "/secure", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, SECURE_PATH, http.StatusTemporaryRedirect)
 }

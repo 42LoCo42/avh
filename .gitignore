@@ -1,4 +1,5 @@
+*.db
+*.mp4
 /.direnv
 /.env
 /result
-/users.db

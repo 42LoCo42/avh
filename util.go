@@ -28,7 +28,7 @@ func badReq(w http.ResponseWriter, r *http.Request, msg string) {
 
 func onErr(w http.ResponseWriter, r *http.Request, err error) {
 	log.Print(err)
-	http.Redirect(w, r, "/err.html?msg"+err.Error(), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/err.html?msg="+err.Error(), http.StatusTemporaryRedirect)
 }
 
 func genHash(pass, salt string) string {

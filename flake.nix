@@ -27,6 +27,9 @@
 
         dockerImage = pkgs.dockerTools.buildImage {
           name = "avh";
+
+          copyToRoot = ./root;
+
           config = {
             Cmd = [
               "${defaultPackage}/bin/avh"

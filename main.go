@@ -5,11 +5,13 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -18,14 +20,27 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const DB = "users.db"
-const INIT_LENGTH = 16
-const ENV_JWT_KEY_NAME = "AVH_JWT_KEY"
+const (
+	SECURE_PATH = "/secure"
+
+	APP_DIR    = "app/"
+	DB_PATH    = APP_DIR + "users.db"
+	SRV_DIR    = APP_DIR + "srv/"
+	SECURE_DIR = SRV_DIR + SECURE_PATH + "/"
+
+	INIT_LENGTH      = 16
+	ENV_JWT_KEY_NAME = "AVH_JWT_KEY"
+)
+
+//go:embed template.html
+var videosTemplate []byte
 
 var db *sql.DB
 var jwtKey []byte
 
 func main() {
+	var err error
+
 	jwtKeyString, ok := os.LookupEnv(ENV_JWT_KEY_NAME)
 	if !ok {
 		log.Fatalf("%s not set!", ENV_JWT_KEY_NAME)
@@ -33,16 +48,11 @@ func main() {
 	jwtKey = []byte(jwtKeyString)
 
 	init := false
-	if _, err := os.Stat(DB); os.IsNotExist(err) {
+	if _, err := os.Stat(DB_PATH); os.IsNotExist(err) {
 		init = true
 	}
 
-	videosTemplate, err := os.ReadFile("root/secure/template.html")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	db, err = sql.Open("sqlite", "users.db")
+	db, err = sql.Open("sqlite", DB_PATH)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,7 +134,7 @@ func main() {
 				continue
 			}
 
-			base := "./root/secure/" + path.Base(part.FileName())
+			base := SECURE_DIR + path.Base(part.FileName())
 			log.Printf("User %s uploads %s", user, base)
 
 			file, err := os.Create(base)
@@ -139,14 +149,15 @@ func main() {
 				return
 			}
 
-			http.ServeFile(w, r, "root/ok.html")
+			http.ServeFile(w, r, SRV_DIR+"ok.html")
 			return
 		}
 
 		badReq(w, r, "Could not process upload")
 
 	})
-	http.HandleFunc("/secure", func(w http.ResponseWriter, r *http.Request) {
+
+	http.HandleFunc(SECURE_PATH, func(w http.ResponseWriter, r *http.Request) {
 		user, ok := userAuth(w, r)
 		if !ok {
 			return
@@ -155,7 +166,7 @@ func main() {
 
 		var str strings.Builder
 
-		videos, err := os.ReadDir("root/secure")
+		videos, err := os.ReadDir(SECURE_DIR)
 		if err != nil {
 			onErr(w, r, err)
 			return
@@ -163,12 +174,13 @@ func main() {
 
 		for _, video := range videos {
 			name := video.Name()
-			if name == "thumbnails" || strings.HasSuffix(name, ".html") {
-				continue
-			}
+			log.Print(name)
+			// if name == "thumbnails" || strings.HasSuffix(name, ".html") {
+			// 	continue
+			// }
 
-			base := "/secure/" + name
-			poster := "/secure/thumbnails/" + strings.TrimSuffix(name, path.Ext(name)) + ".png"
+			base := SECURE_PATH + "/" + name
+			// poster := "/secure/thumbnails/" + strings.TrimSuffix(name, path.Ext(name)) + ".png"
 
 			fmt.Fprintf(
 				&str,
@@ -183,7 +195,7 @@ func main() {
 				`,
 				name,
 				base,
-				poster,
+				"",
 			)
 		}
 
@@ -192,9 +204,10 @@ func main() {
 	})
 
 	// static files
-	fileServer := http.FileServer(http.Dir("root"))
+	fileServer := http.FileServer(http.Dir(SRV_DIR))
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/secure/") {
+		if strings.HasPrefix(r.URL.Path, SECURE_PATH) {
 			user, ok := userAuth(w, r)
 			if !ok {
 				return
@@ -206,9 +219,21 @@ func main() {
 			}
 		}
 
-		fileServer.ServeHTTP(w, r)
+		if len(r.URL.Path) > 1 && strings.HasSuffix(r.URL.Path, "/") {
+			http.Redirect(w, r, strings.TrimSuffix(r.URL.Path, "/"), http.StatusTemporaryRedirect)
+		} else {
+			fileServer.ServeHTTP(w, r)
+		}
 	})
 
-	log.Print("Up and running")
-	http.ListenAndServe(":37812", nil)
+	listener, err := net.Listen("tcp4", "0.0.0.0:8080")
+	if err != nil {
+		log.Fatal("could not create listener: ", err)
+	}
+
+	go func() {
+		log.Print("Up and running!")
+	}()
+
+	log.Fatal(http.Serve(listener, nil))
 }

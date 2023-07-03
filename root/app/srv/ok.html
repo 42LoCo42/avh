@@ -10,21 +10,22 @@
 		<title>AvH-Videos</title>
 	</head>
 	<body style="display: none;">
-		<h1>Fehler</h1>
-		<h3 id="msg">Unbekannter Fehler</h3>
+		<h1>Erfolg!</h1>
 		<hr>
-		Automatische Rückkehr erfolgt in 5 Sekunden...<br>
-		Klicke <a href="javascript:go()">hier</a> für sofortige Rückkehr.
+		Automatische Weiterleitung erfolgt in 5 Sekunden...<br>
+		Klicke <a href="javascript:go()">hier</a> für sofortige Weiterleitung.
 		<script>
 			function go() {
-				history.back();
+				const params = new URLSearchParams(window.location.search);
+				const location = params.get("next");
+				if(location === null) {
+					history.back();
+				} else {
+					window.location = location;
+				}
 			}
-			
-			window.setTimeout(go, 5000);
 
-			const params = new URLSearchParams(window.location.search);
-			const msg = document.getElementById("msg");
-			msg.innerText = params.get("msg");
+			window.setTimeout(go, 5000);
 		</script>
 	</body>
 </html>
