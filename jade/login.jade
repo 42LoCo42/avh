@@ -1,0 +1,20 @@
+doctype html
+html(lang="de")
+  head
+    meta(charset="utf-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no")
+	title AvH-Videos - Login
+  body
+    h1 AvH-Videos - Login
+    form(action="/login" method="POST")
+      input(type="submit" style="display: none")
+      table
+        tr
+          td Benutzername
+          td
+            input(type="text" name="username")
+        tr
+          td Passwort
+          td
+            input(type="password" name="password")
+      input(type="submit" value="Login")

@@ -1,64 +1,123 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/sha512"
 	"encoding/base64"
 	"log"
-	"math/big"
 	"net/http"
+	"time"
 
+	"github.com/42LoCo42/avh/jade"
+	"github.com/go-faster/errors"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/pbkdf2"
+	"gorm.io/gorm"
 )
 
-func noAuth(w http.ResponseWriter, r *http.Request, name string) {
-	if name == "" {
-		log.Print("Login with no cookie!")
-	} else {
-		log.Printf("User %s failed login!", name)
+func FindUser(db *gorm.DB, username string) (*User, error) {
+	var user User
+	if err := db.Where("name = ?", username).First(&user).Error; err != nil {
+		return nil, errors.Wrapf(err, "user %v not found", username)
+	}
+	return &user, nil
+}
+
+func MkHash(pass, salt string) string {
+	return base64.StdEncoding.EncodeToString(
+		pbkdf2.Key([]byte(pass), []byte(salt), 10000, 64, sha512.New))
+}
+
+func MkCookie(user string, jwtKey []byte) (*http.Cookie, error) {
+	now := time.Now()
+	exp := now.Add(time.Hour * 24)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(exp),
+		IssuedAt:  jwt.NewNumericDate(now),
+		Issuer:    "avh",
+		Subject:   user,
+	})
+
+	signed, err := token.SignedString(jwtKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not sign auth token")
 	}
 
-	http.Redirect(w, r, "/err.html?msg=Authentifizierung fehlgeschlagen", http.StatusTemporaryRedirect)
+	return &http.Cookie{
+		Name:     "auth",
+		Value:    signed,
+		Path:     "/",
+		Expires:  exp,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	}, nil
 }
 
-func badReq(w http.ResponseWriter, r *http.Request, msg string) {
-	log.Print(msg)
-	http.Redirect(w, r, "/err.html?msg="+msg, http.StatusTemporaryRedirect)
-}
+func Auth(e *echo.Echo, db *gorm.DB, jwtKey []byte) echo.MiddlewareFunc {
+	fail := func(c echo.Context, err error) error {
+		resp := c.Response()
+		resp.Status = http.StatusUnauthorized
+		jade.Jade_login(resp)
+		return err
+	}
 
-func onErr(w http.ResponseWriter, r *http.Request, err error) {
-	log.Print(err)
-	http.Redirect(w, r, "/err.html?msg="+err.Error(), http.StatusTemporaryRedirect)
-}
+	login := e.POST("/login", func(c echo.Context) error {
+		username := c.FormValue("username")
+		password := c.FormValue("password")
 
-func genHash(pass, salt string) string {
-	return base64.StdEncoding.EncodeToString(
-		pbkdf2.Key(
-			[]byte(pass),
-			[]byte(salt),
-			10000,
-			64,
-			sha512.New,
-		),
-	)
-}
-
-// https://gist.github.com/denisbrodbeck/635a644089868a51eccd6ae22b2eb800
-func GenerateRandomASCIIString(length int) (string, error) {
-	result := ""
-	for {
-		if len(result) >= length {
-			return result, nil
-		}
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(127)))
+		user, err := FindUser(db, username)
 		if err != nil {
-			return "", err
+			return fail(c, err)
 		}
-		n := num.Int64()
-		// Make sure that the number/byte/letter is inside
-		// the range of printable ASCII characters (excluding space and DEL)
-		if n > 32 && n < 127 {
-			result += string(rune(n))
+
+		hash := MkHash(password, user.Salt)
+		if hash != user.Hash {
+			return fail(c, errors.New("hash mismatch"))
+		}
+
+		cookie, err := MkCookie(username, jwtKey)
+		if err != nil {
+			return fail(c, errors.Wrap(err, "could not create session cookie"))
+		}
+
+		c.SetCookie(cookie)
+		log.Printf("\x1B[1;32mUser %v logged in!\x1B[m", username)
+		return c.Redirect(http.StatusSeeOther, "/")
+	})
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if c.Request().URL.Path == login.Path {
+				return next(c)
+			}
+
+			auth, err := c.Cookie("auth")
+			if err != nil {
+				return fail(c, errors.Wrap(err, "could not get auth cookie"))
+			}
+
+			token, err := jwt.ParseWithClaims(
+				auth.Value,
+				&jwt.RegisteredClaims{},
+				func(t *jwt.Token) (interface{}, error) {
+					return jwtKey, nil
+				},
+				jwt.WithValidMethods([]string{jwt.SigningMethodHS512.Name}),
+				jwt.WithIssuer("avh"),
+			)
+			if err != nil {
+				return fail(c, errors.Wrap(err, "invalid auth token"))
+			}
+
+			username := token.Claims.(*jwt.RegisteredClaims).Subject
+			user, err := FindUser(db, username)
+			if err != nil {
+				return fail(c, errors.Wrapf(err, "auth token has invalid user %v", username))
+			}
+
+			c.Set("user", user)
+			return next(c)
 		}
 	}
 }

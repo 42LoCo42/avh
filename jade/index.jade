@@ -1,0 +1,15 @@
+:go:func(arg) videos []string
+doctype html
+html(lang="de")
+  head
+    meta(charset="utf-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no")
+	title AvH-Videos
+  body
+    h1 AvH-Videos
+    div(style="display: flex; flex-flow: row wrap")
+      each video in videos
+        div(style="display: flex; flex-flow: column nowrap; border: 1px solid black; padding: 5px; margin: 4px")
+          span #{video}
+          video(controls="" preload="none" poster=video + ".png" style="max-width: 100%; margin-top: 5px")
+            source(src=video)

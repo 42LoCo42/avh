@@ -1,5 +1,5 @@
 *.db
 *.mp4
+*.png
 /.direnv
-/.env
 /result

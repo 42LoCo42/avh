@@ -1,40 +1,32 @@
 {
   description = "AvH video storage";
 
-  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs.obscura.url = "github:42loco42/obscura";
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { flake-utils, nixpkgs, obscura, ... }:
     flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-      in
+      let pkgs = import nixpkgs { inherit system; }; in
       rec {
-        defaultPackage = pkgs.buildGoModule {
-          pname = "avh";
-          version = "1";
-          src = ./.;
-
-          vendorSha256 = "sha256-6J1qZ10MVSljIbmixZ0KD//Vr+txbZz4Ct5dqPEM76I=";
-        };
-
-        devShell = pkgs.mkShell {
-          packages = with pkgs; [
-            bashInteractive
-            go
-            gopls
-          ];
-        };
-
-        dockerImage = pkgs.dockerTools.buildImage {
+        packages.default = pkgs.buildGoModule {
           name = "avh";
+          src = ./.;
+          vendorHash = "sha256-C5YijILF5XFUA71O5KPf8RVro5njj/YMcHc5FFgdFpo=";
 
-          copyToRoot = ./root;
+          nativeBuildInputs = [ obscura.packages.${pkgs.system}.jade ];
+          preBuild = ''
+            jade --writer -d jade .
+          '';
+        };
 
-          config = {
-            Cmd = [
-              "${defaultPackage}/bin/avh"
-            ];
-          };
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [ packages.default ];
+          packages = with pkgs; [ gopls ];
+        };
+
+        packages.foo = pkgs.dockerTools.buildImage {
+          name = "avh";
+          tag = "latest";
+          config.Cmd = [ (pkgs.lib.getExe packages.default) ];
         };
       });
 }
