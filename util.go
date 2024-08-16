@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/42LoCo42/avh/jade"
 	"github.com/go-faster/errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
@@ -58,8 +57,7 @@ func Auth(e *echo.Echo, db *gorm.DB, jwtKey []byte) echo.MiddlewareFunc {
 	fail := func(c echo.Context, err error) error {
 		resp := c.Response()
 		resp.Status = http.StatusUnauthorized
-		jade.Jade_login(resp)
-		return err
+		return Page(Login()).Render(c.Response())
 	}
 
 	login := e.POST("/login", func(c echo.Context) error {
