@@ -8,7 +8,7 @@
         packages.default = pkgs.buildGoModule rec {
           name = "avh";
           src = ./.;
-          vendorHash = "sha256-TjzOEqbBP4qOCcZLtY0GPz0o5UhiSffiUTBwNVaLRXs=";
+          vendorHash = "sha256-2lzghQws/RghTv2EnhELLVr63yff+9sSmDlia2jH3QI=";
 
           CGO_ENABLED = "0";
           stripAllList = [ "bin" ];
